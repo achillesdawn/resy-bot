@@ -10,7 +10,7 @@ from time import sleep
 
 from datatypes import VenueInfo, VenueData, VenueSlot
 
-
+from exceptions import TimeNotValid
 class ReservationBot:
     venue_info: VenueInfo
 
@@ -29,8 +29,12 @@ class ReservationBot:
         self.END_DATE = one_year.strftime("%Y-%m-%d")
 
         self.DESIRED_DATES = desired_dates
-        self.START_TIME = start_time
-        self.END_TIME = end_time
+        self.START_TIME = datetime.time.fromisoformat(start_time)
+        self.END_TIME = datetime.time.fromisoformat(end_time)
+
+        if self.START_TIME.hour >= self.END_TIME.hour:
+            raise TimeNotValid("Start Time must be Earlier than End time by at least 1 hour")
+
         self.NUM_SEATS = num_seats
         self.VENUE_NAME = venue_name
         self.VENUE_LOCATION = location

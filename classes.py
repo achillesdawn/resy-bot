@@ -1,9 +1,10 @@
 import requests
 
 from datatypes import VenueSlot
-from datetime import datetime
+import datetime
 
 from reservation import ReservationDetails
+
 
 class AvailableSlot:
 
@@ -14,12 +15,29 @@ class AvailableSlot:
         self.config_token = data["config"]["token"]
         self.config = data["config"]["type"]
 
-        self.start_time = datetime.strptime(data["date"]["start"], "%Y-%m-%d %H:%M:%S")
-        self.end_time = datetime.strptime(data["date"]["end"], "%Y-%m-%d %H:%M:%S")
+        self.start_time = datetime.datetime.strptime(data["date"]["start"], "%Y-%m-%d %H:%M:%S")
+        self.end_time = datetime.datetime.strptime(data["date"]["end"], "%Y-%m-%d %H:%M:%S")
 
         self.payment_info = data["payment"]
 
         self.seat_count = seat_count
+
+    def is_within_time(self, start_time: datetime.time, end_time: datetime.time):
+
+        if self.start_time.hour < start_time.hour:
+            pass
+        elif self.start_time.hour == start_time.hour:
+            if self.start_time.minute >= start_time.minute:
+                pass
+            else:
+                return False
+        else:
+            return False
+
+        if self.start_time.hour < end_time.hour:
+            return True
+        else:
+            return False
 
     def print_payment_info(self):
 
@@ -85,6 +103,3 @@ class AvailableSlot:
             return
         else:
             self.print_reservation_details()
-
-
-
