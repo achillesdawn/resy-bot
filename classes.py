@@ -2,6 +2,7 @@ import requests
 
 from datatypes import VenueSlot
 import datetime
+from functools import partial
 
 from reservation import ReservationDetails
 
@@ -23,7 +24,7 @@ class AvailableSlot:
         self.seat_count = seat_count
 
     def __str__(self):
-        return f"{self.config} start {self.start_time.strftime('%H:%M')}"
+        return f"{self.config} for {self.seat_count} at {self.start_time.strftime('%H:%M')}"
 
     def is_within_time(self, start_time: datetime.time, end_time: datetime.time) -> bool:
 
@@ -61,8 +62,9 @@ class AvailableSlot:
                 resp.raise_for_status()
 
             data = resp.json()
-        except requests.RequestException:
+        except requests.RequestException as e:
             print("Could not get Reservation details")
+            print(e.response.content)
             return
         except requests.JSONDecodeError:
             print("Could not get Reservation details")
@@ -70,16 +72,39 @@ class AvailableSlot:
         else:
             return data
 
-    @staticmethod
-    def print_reservation_details(data: ReservationDetails):
-        pass
+    def print_reservation_details(self, data: ReservationDetails):
+
+        println = partial(print, "  |")
+
+        payment = data["payment"]
+        println()
+        println("Date & Time |", self.start_time, "to", self.end_time)
+        println("Guests |", self.seat_count)
+        println(f'${payment["amounts"]["price_per_unit"]} per Guest')
+        println()
+        println("Order Summary")
+        println(f"{self.seat_count:<4}{self.config:<10}", f"{payment['amounts']['reservation_charge']:>10}")
+        println(f"{'Tax':<15}", f"{payment['amounts']['tax']:>10}")
+        println(f'{"Total":<15}', f"{payment['amounts']['total']:>10}")
+        println()
+        println("Cancelation Policy:")
+
+        lines = data["cancellation"]["display"]["policy"][0].split(". ")
+        for line in lines:
+            println(line)
+        println()
+
+        lines = data["config"]["double_confirmation"][0].split(". ")
+        for line in lines:
+            println(line.strip())
+        println()
 
     def get_reservation_details(self, commit=0):
         url = "https://api.resy.com/3/details"
 
         payload = {
             "commit": commit,
-            "config_id": self.config_id,
+            "config_id": self.config_token,
             "day": self.start_time.strftime("%Y-%m-%d"),
             "party_size": self.seat_count
         }

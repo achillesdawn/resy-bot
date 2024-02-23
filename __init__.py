@@ -19,12 +19,14 @@ class ReservationBot:
     venue_info: VenueInfo
 
     def __init__(
-        self, desired_dates: list[str],
-        start_time: str,
-        end_time: str | None,
-        num_seats: int = 4,
-        venue_name: str = "ciccio-mio",
-        location: str = "chi"
+            self, desired_dates: list[str],
+            start_time: str,
+            end_time: str | None,
+            num_seats: int = 4,
+            venue_name: str = "ciccio-mio",
+            location: str = "chi",
+            check_every_in_min: int = 10,
+            auto_reserve=False,
     ) -> None:
 
         today = datetime.date.today()
@@ -32,9 +34,12 @@ class ReservationBot:
         one_year = today.replace(year=today.year + 1)
         self.END_DATE = one_year.strftime("%Y-%m-%d")
 
-        self.DESIRED_DATES = desired_dates
-        self.START_TIME = datetime.time.fromisoformat(start_time)
-        self.END_TIME = datetime.time.fromisoformat(end_time)
+        try:
+            self.DESIRED_DATES = [datetime.date.fromisoformat(desired_date) for desired_date in desired_dates]
+            self.START_TIME = datetime.time.fromisoformat(start_time)
+            self.END_TIME = datetime.time.fromisoformat(end_time)
+        except ValueError:
+            raise TimeNotValid("Dates must be YYYY-MM-DD format and times in HH:MM format")
 
         if self.START_TIME.hour >= self.END_TIME.hour:
             raise TimeNotValid("Start Time must be Earlier than End time by at least 1 hour")
@@ -42,6 +47,9 @@ class ReservationBot:
         self.NUM_SEATS = num_seats
         self.VENUE_NAME = venue_name
         self.VENUE_LOCATION = location
+
+        self.CHECK_EVERY_IN_MIN = check_every_in_min
+        self.AUTO_RESERVE = auto_reserve
 
         self.headers = {
             "accept": "application/json, text/plain, */*",
@@ -69,25 +77,41 @@ class ReservationBot:
 
         self.venue_info = VenueInfo(data["id"]["resy"], data["url_slug"], self.VENUE_LOCATION)
 
-        print(self.venue_info)
-
     @staticmethod
     def print_venue(data: VenueData):
+
+        print("  ------")
         print(f'[ {data["name"]} ]')
-        print(f' ::{data["type"]}::')
-        print("|", data["metadata"]["description"])
+        print(f'  | ::{data["type"]}::')
+        print("  |", data["metadata"]["description"])
 
         for content in data["content"]:
             if content["name"] == "why_we_like_it":
-                print("|", content["body"])
+                print("  |", content["body"])
 
+        print("  |")
         print(
-            "Rating", f'{data["rater"][0]["score"]:.2}/{data["rater"][0]["scale"]} |', data["rater"][0]["total"],
-            "Rating"
+            "  | Rating", f'{data["rater"][0]["score"]:.2}/{data["rater"][0]["scale"]} |', data["rater"][0]["total"],
+            "Ratings"
         )
-        print(data["contact"]["url"])
-        print(data["large_party_message"])
-        print("Min Party Size", data["min_party_size"])
+        print("  |", data["contact"]["url"])
+        print()
+        print("  |  >>", data["large_party_message"])
+        print("  |  >> Min Party Size", data["min_party_size"])
+        print("  ------")
+
+    def wait(self):
+        for minute in range(self.CHECK_EVERY_IN_MIN, 0, -1):
+            print(f"{minute} mins before checking again")
+            for i in range(30):
+                if i % 5 == 0:
+                    print("", end="\r")
+                    print(".", end="")
+                else:
+                    print(".", end="")
+                sleep(2)
+
+            print()
 
     def get_url(self) -> str:
         return (
@@ -145,25 +169,26 @@ class ReservationBot:
                     else:
                         return data
 
-    def execute(self):
-
-        self.request_venue_info()
-
+    def main(self) -> bool:
         url = self.get_url()
-        print(url)
 
         try:
             data: ScheduleData = self.get(url)
-        except (requests.RequestException, requests.JSONDecodeError):
-            return
+        except (requests.RequestException, requests.JSONDecodeError) as e:
+            raise e
 
-        available_dates = []
+        available_dates: list[datetime.date] = []
         for schedule in data["scheduled"]:
             if schedule["inventory"]["reservation"] != "sold-out":
-                available_dates.append(schedule["date"])
+                schedule_date = datetime.date.fromisoformat(schedule["date"])
+                available_dates.append(schedule_date)
 
         # Check if dates is desired date and times within start and end times
         for date in available_dates:
+
+            if date not in self.DESIRED_DATES:
+                continue
+
             url = (
                 f"https://api.resy.com/4/find?lat=0&long=0"
                 f"&day={date}"
@@ -175,19 +200,73 @@ class ReservationBot:
             slots: list[VenueSlot] = find["results"]["venues"][0]["slots"]
 
             if len(slots) == 0:
+                print(f"[ {date} ] [ No Reservations Available ]")
+            else:
+                available_slots = []
+                unavailable_slots = []
+                for slot in slots:
 
-            for slot in slots:
-                slot = AvailableSlot(slot, seat_count=self.NUM_SEATS)
-                if slot.is_within_time(self.START_TIME, self.END_TIME):
-                    print(slot)
+                    slot = AvailableSlot(slot, seat_count=self.NUM_SEATS)
 
+                    if slot.is_within_time(self.START_TIME, self.END_TIME):
+                        available_slots.append(slot)
+                    else:
+                        unavailable_slots.append(slot)
+                print()
+                print(f"[ {date} ] [ Reservations ]")
+                print(f"  | {len(available_slots)} Available Times")
+                print(f"  | {len(unavailable_slots)} Available Times outside specified start and end times")
+                print(f"  |")
+                print()
+
+                if self.AUTO_RESERVE:
+
+                    print(f"[ {date} ] [ Auto Reservation ON ]")
+                    print(f"  | Reserving First Available Slot")
+                    print(f"  |")
+                    print()
+
+                    reservation = available_slots[0]
+                    reservation.get_reservation_details(commit=0)
+                    return True
+                else:
+                    for slot in available_slots:
+                        print("Found reservation", slot)
+        else:
+            return False
+
+    def run(self):
+
+        self.request_venue_info()
+
+        while True:
+
+            try:
+                result = self.main()
+
+                if result:
+                    print("[ RESERVATION MADE ]")
+                    break
+
+            except (requests.RequestException, requests.JSONDecodeError) as e:
+                print("Retrying in 30s")
+                sleep(30)
+                continue
+            else:
+                self.wait()
+                continue
 
 
 if __name__ == "__main__":
-    r = ReservationBot(
-        desired_dates=['2024-02-24', '2024-02-24'],
-        start_time="19:00",
-        end_time="21:00"
+    bot = ReservationBot(
+        venue_name="ciccio-mio",
+        location="chi",
+        num_seats=4,
+        desired_dates=['2024-02-25', '2024-02-26'],
+        start_time="21:00",
+        end_time="22:00",
+        auto_reserve=False,
+        check_every_in_min=5
     )
 
-    r.execute()
+    bot.run()
