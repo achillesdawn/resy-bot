@@ -1,0 +1,3 @@
+class VenueNotFound(Exception):
+    pass
+
