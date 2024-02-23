@@ -63,21 +63,29 @@ class VenueSlotDate(TypedDict):
 class VenueTable(TypedDict):
     id: list[int]
 
+
 class PaymentInfo(TypedDict):
-    cancellation_fee:  Optional[float]
+    cancellation_fee: Optional[float]
     deposit_fee: float
     is_paid: bool
     payment_structure: int
     service_charge: str
     venue_share: int
 
+
+Size = TypedDict('Size', {'assumed': int})
+
+
 class VenueSlotMeta(TypedDict):
-    size: TypedDict('TableSize', {'assumed': int})
+    size: Size
+
 
 class VenueSlotConfig(TypedDict):
     id: int
     token: str
     type: str
+
+
 class VenueSlot(TypedDict):
     date: VenueSlotDate
     table: VenueTable
@@ -87,3 +95,20 @@ class VenueSlot(TypedDict):
     config: VenueSlotConfig
 
 
+Inventory = TypedDict(
+    "Inventory", {
+        "reservation": str,
+        "event": str,
+        "walk-in": str
+    }
+)
+
+
+class Scheduled(TypedDict):
+    date: str
+    inventory: Inventory
+
+
+class ScheduleData(TypedDict):
+    scheduled: list[Scheduled]
+    last_calendar_day: str

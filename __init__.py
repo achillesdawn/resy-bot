@@ -8,9 +8,13 @@ import datetime
 
 from time import sleep
 
-from datatypes import VenueInfo, VenueData, VenueSlot
+from datatypes import VenueInfo, VenueData, VenueSlot, ScheduleData
 
 from exceptions import TimeNotValid
+
+from classes import AvailableSlot
+
+
 class ReservationBot:
     venue_info: VenueInfo
 
@@ -143,30 +147,35 @@ class ReservationBot:
 
     def execute(self):
 
-        self.get_venue_info()
+        self.request_venue_info()
 
         url = self.get_url()
         print(url)
 
         try:
-            data = self.get(url)
-        except Exception as e:
-            print("error handling here")
+            data: ScheduleData = self.get(url)
+        except (requests.RequestException, requests.JSONDecodeError):
             return
 
         available_dates = []
-        for data in data["scheduled"]:
-            if data["inventory"]["reservation"] != "sold-out":
-                available_dates.append(data["date"])
+        for schedule in data["scheduled"]:
+            if schedule["inventory"]["reservation"] != "sold-out":
+                available_dates.append(schedule["date"])
 
         # Check if dates is desired date and times within start and end times
         for date in available_dates:
-            url = f"https://api.resy.com/4/find?lat=0&long=0&day={date}&party_size={self.NUM_SEATS}&venue_id={self.venue_info.id}"
+            url = (
+                f"https://api.resy.com/4/find?lat=0&long=0"
+                f"&day={date}"
+                f"&party_size={self.NUM_SEATS}"
+                f"&venue_id={self.venue_info.id}"
+            )
 
             data: VenueSlot = self.get(url)
+            slot = AvailableSlot(data, seat_count=self.NUM_SEATS)
+            if slot.is_within_time(self.START_TIME, self.END_TIME):
+                print(slot)
 
-    def get_venue_info(self):
-        self.request_venue_info()
 
 
 if __name__ == "__main__":

@@ -22,12 +22,15 @@ class AvailableSlot:
 
         self.seat_count = seat_count
 
-    def is_within_time(self, start_time: datetime.time, end_time: datetime.time):
+    def __str__(self):
+        return f"{self.config} start {self.start_time.strftime('%H:%M')}"
 
-        if self.start_time.hour < start_time.hour:
+    def is_within_time(self, start_time: datetime.time, end_time: datetime.time) -> bool:
+
+        if start_time.hour < self.start_time.hour:
             pass
-        elif self.start_time.hour == start_time.hour:
-            if self.start_time.minute >= start_time.minute:
+        elif start_time.hour == self.start_time.hour:
+            if start_time.minute <= self.start_time.minute:
                 pass
             else:
                 return False
@@ -50,17 +53,18 @@ class AvailableSlot:
             print(f'Reservation Cancellation Fee: {payment["cancellation_fee"]}')
         print(f"Venue share of the fee: {payment['venue_share']}%")
 
-    def post(self, url: str, payload: dict, headers: dict):
+    @staticmethod
+    def post(url: str, payload: dict, headers: dict):
         try:
             resp = requests.post(url, json=payload, headers=headers)
             if not resp.ok:
                 resp.raise_for_status()
 
             data = resp.json()
-        except requests.RequestException as e:
+        except requests.RequestException:
             print("Could not get Reservation details")
             return
-        except requests.JSONDecodeError as e:
+        except requests.JSONDecodeError:
             print("Could not get Reservation details")
             return
         else:
@@ -68,6 +72,7 @@ class AvailableSlot:
 
     @staticmethod
     def print_reservation_details(data: ReservationDetails):
+        pass
 
     def get_reservation_details(self, commit=0):
         url = "https://api.resy.com/3/details"
@@ -102,4 +107,4 @@ class AvailableSlot:
         if data is None:
             return
         else:
-            self.print_reservation_details()
+            self.print_reservation_details(data)
