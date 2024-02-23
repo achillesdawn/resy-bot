@@ -1,22 +1,26 @@
+"""
+This Python script is authored by Olivio (fiverr.com/olivo_).
+Version: 1.0.0 (2024-02-24)
+"""
+
 import requests
 import datetime
 
 from time import sleep
 
-from exceptions import VenueNotFound
-from datatypes import VenueInfo, VenueData
+from datatypes import VenueInfo, VenueData, VenueSlot
 
 
 class ReservationBot:
     venue_info: VenueInfo
 
     def __init__(
-            self, desired_dates: list[str],
-            start_time: str,
-            end_time: str | None,
-            num_seats: int = 4,
-            venue_name: str = "ciccio-mio",
-            location: str = "chi"
+        self, desired_dates: list[str],
+        start_time: str,
+        end_time: str | None,
+        num_seats: int = 4,
+        venue_name: str = "ciccio-mio",
+        location: str = "chi"
     ) -> None:
 
         today = datetime.date.today()
@@ -69,8 +73,10 @@ class ReservationBot:
             if content["name"] == "why_we_like_it":
                 print(content["body"])
 
-        print("Rating", f'{data["rater"][0]["score"]:.2}/{data["rater"][0]["scale"]} |', data["rater"][0]["total"],
-              "Rating")
+        print(
+            "Rating", f'{data["rater"][0]["score"]:.2}/{data["rater"][0]["scale"]} |', data["rater"][0]["total"],
+            "Rating"
+        )
         print(data["contact"]["url"])
         print(data["large_party_message"])
         print("Min Party Size", data["min_party_size"])
@@ -135,7 +141,6 @@ class ReservationBot:
 
         self.get_venue_info()
 
-
         url = self.get_url()
         print(url)
 
@@ -151,9 +156,10 @@ class ReservationBot:
                 available_dates.append(data["date"])
 
         # Check if dates is desired date and times within start and end times
-        print(available_dates)
+        for date in available_dates:
+            url = f"https://api.resy.com/4/find?lat=0&long=0&day={date}&party_size={self.NUM_SEATS}&venue_id={self.venue_info.id}"
 
-        # if found, run selenium to reserve
+            data: VenueSlot = self.get(url)
 
     def get_venue_info(self):
         self.request_venue_info()
@@ -167,5 +173,3 @@ if __name__ == "__main__":
     )
 
     r.execute()
-
-
