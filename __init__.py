@@ -79,7 +79,7 @@ class ReservationBot:
 
         for content in data["content"]:
             if content["name"] == "why_we_like_it":
-                print(content["body"])
+                print("|", content["body"])
 
         print(
             "Rating", f'{data["rater"][0]["score"]:.2}/{data["rater"][0]["scale"]} |', data["rater"][0]["total"],
@@ -171,10 +171,15 @@ class ReservationBot:
                 f"&venue_id={self.venue_info.id}"
             )
 
-            data: VenueSlot = self.get(url)
-            slot = AvailableSlot(data, seat_count=self.NUM_SEATS)
-            if slot.is_within_time(self.START_TIME, self.END_TIME):
-                print(slot)
+            find = self.get(url)
+            slots: list[VenueSlot] = find["results"]["venues"][0]["slots"]
+
+            if len(slots) == 0:
+
+            for slot in slots:
+                slot = AvailableSlot(slot, seat_count=self.NUM_SEATS)
+                if slot.is_within_time(self.START_TIME, self.END_TIME):
+                    print(slot)
 
 
 
