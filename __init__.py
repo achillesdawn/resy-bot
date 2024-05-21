@@ -5,13 +5,10 @@ Version: 1.0.0 (2024-02-24)
 
 import requests
 import datetime
-
 from time import sleep
 
 from datatypes import VenueInfo, VenueData, VenueSlot, ScheduleData
-
 from exceptions import TimeNotValid
-
 from classes import AvailableSlot
 
 
